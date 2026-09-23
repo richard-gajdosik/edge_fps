@@ -66,12 +66,10 @@ function loadMap(id) {
   mapState.checkpoints.forEach((c, i) => {
     if (i === 0) return;
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.06, 8, 24),
-      new THREE.MeshBasicMaterial({ color: 0xe63030 }));
+      new THREE.MeshBasicMaterial({ color: 0xff4a24 }));
     ring.position.copy(c); ring.position.y += 0.2; ring.rotation.x = Math.PI/2;
     ring.userData.spin = true; ring.userData.ownMaterial = true;
     level.add(ring);
   });
 }
 
-const grid = new THREE.GridHelper(600, 120, 0xc4cbd2, 0xdde2e7);
-grid.position.y = -30; scene.add(grid);

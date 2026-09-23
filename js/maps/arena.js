@@ -13,7 +13,7 @@ registerMap({
   respawnTargets: true,
 
   build() {
-    const W = 90, H = 10;
+    const W = 90, H = 6;
     // floor + perimeter walls (all wall-runnable)
     box(0, -1, 0, W, 1, W, matLight);
     box(0, 0, -W/2, W, H, 1, matWall, { wall: true });

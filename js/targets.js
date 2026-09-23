@@ -23,7 +23,7 @@ function addTarget(x, y, z, opts = {}) {
 
   const panelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9,
                                                     emissive: 0xe63030, emissiveIntensity: 0 });
-  applyRimShader(panelMat);
+  applyRimShader(panelMat, false);
   const panel = new THREE.Mesh(tgtPanelGeo, panelMat);
   panel.userData.ownMaterial = true;
   const ring = new THREE.Mesh(tgtRingGeo, matTgtRing); ring.rotation.x = Math.PI/2;

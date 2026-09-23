@@ -210,6 +210,7 @@ function loop(now) {
   updateTargets(dt, time);
   updateFx(dt);
   updateSun(player.pos);
+  updateEnvironment(dt);
 
   for (const o of level.children) if (o.userData.spin) o.rotation.z += dt*1.5;
 

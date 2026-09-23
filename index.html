@@ -10,6 +10,8 @@
 <div id="app"></div>
 
 <div id="ui">
+  <div id="vignette"></div>
+  <div id="grain"></div>
   <div id="cross"><i></i><i></i><i></i><i></i></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
   <div id="hud">
@@ -61,6 +63,7 @@
 <!-- Order matters: plain (non-module) scripts sharing global scope, so the game
      also runs straight from file:// without a local server. -->
 <script src="js/engine.js"></script>
+<script src="js/environment.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/level.js"></script>
 <script src="js/fx.js"></script>

@@ -63,7 +63,7 @@ const tracers = [];
 function spawnTracer(from, to) {
   const len = from.distanceTo(to);
   if (len < 0.5) return;
-  const mat = new THREE.MeshBasicMaterial({ color: 0xe63030, transparent: true, opacity: 0.85 });
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff6a3a, transparent: true, opacity: 0.85 });
   const m = new THREE.Mesh(partGeo, mat);
   m.scale.set(0.012, 0.012, len);
   m.position.lerpVectors(from, to, 0.5);
