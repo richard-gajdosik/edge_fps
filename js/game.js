@@ -37,7 +37,7 @@ document.addEventListener('wheel', e => { if (locked) cycleWeapon(e.deltaY > 0 ?
 
 document.addEventListener('mousemove', e => {
   if (!locked) return;
-  const sens = 0.0022 * aimSensitivity();
+  const sens = 0.0022 * aimSensitivity() * SETTINGS.sens;
   player.yaw   -= e.movementX * sens;
   player.pitch -= e.movementY * sens;
   const lim = Math.PI/2 - 0.02;
@@ -137,6 +137,11 @@ const elScope   = document.getElementById('scope');
 const elScore   = document.getElementById('score');
 const elBanner  = document.getElementById('banner');
 const elNades   = document.getElementById('nades');
+const elSpeedLabel = document.getElementById('speedlabel');
+const elSurf    = document.getElementById('surfspeed');
+const elSurfNum = document.querySelector('#surfspeed b');
+const elSurfBar = document.querySelector('#surfbar div');
+const elLines   = document.getElementById('speedlines');
 
 function bestKey() { return 'edge_best_' + mapState.id; }
 function getBest() { try { return parseFloat(localStorage.getItem(bestKey()) || '0') || 0; } catch (e) { return 0; } }
@@ -206,12 +211,18 @@ function respawnTo(i) {
   player.pos.copy(mapState.checkpoints[i]); player.vel.set(0,0,0);
   player.wallrun = 0; player.sliding = false; player.crouching = false; player.mantle = null; player.airJumps = 1;
   player.height = P.standHeight; player.lastSafe.copy(player.pos);
-  if (i === 0) { player.yaw = mapState.startYaw; player.pitch = 0; }
+  if (i === 0 || mapState.def.resetYaw) { player.yaw = mapState.startYaw; if (i === 0) player.pitch = 0; }
+  srcAccum = 0; player.onGround = false; player.surfing = false;
+}
+function checkFinish() {
+  if (!running) return;
+  if ((mapState.finish && player.pos.distanceTo(mapState.finish) < 4) ||
+      (mapState.finishZone && inZone(player.pos, mapState.finishZone))) finishRun();
 }
 function updateCheckpoint() {
   const cps = mapState.checkpoints;
   for (let i = curCheckpoint+1; i < cps.length; i++) {
-    if (player.pos.distanceTo(cps[i]) < 5) {
+    if (cps[i].zone ? inZone(player.pos, cps[i].zone) : player.pos.distanceTo(cps[i]) < 5) {
       curCheckpoint = i;
       elFlash.style.opacity = 0.6; setTimeout(() => elFlash.style.opacity = 0, 60);
     }
@@ -235,7 +246,21 @@ for (let i = 0; i < weaponOrder.length; i++) {
 
 function updateHud(dt) {
   const sp = Math.hypot(player.vel.x, player.vel.z);
-  elSpeed.textContent = Math.round(sp * 7.2);
+  const surf = mapState.def.physics === 'source';
+  elSpeed.textContent = surf ? Math.round(sp / U) : Math.round(sp * 7.2);
+  elSpeedLabel.textContent = surf ? 'U/S' : 'SPEED';
+  // surf: big speedometer (horizontal speed in Source units) + speed lines
+  elSurf.style.display = surf ? 'block' : 'none';
+  if (surf) {
+    const ups = sp / U;
+    elSurfNum.textContent = Math.round(ups);
+    const k = Math.min(ups / 3000, 1);
+    elSurf.style.color = `rgb(${243 + 12*k | 0}, ${236 - 162*k | 0}, ${227 - 191*k | 0})`;
+    elSurfBar.style.width = (k * 100) + '%';
+    elLines.style.opacity = Math.max(0, Math.min(0.55, (ups - 700) / 2400)).toFixed(3);
+  } else elLines.style.opacity = 0;
+  // surf timer only starts once you leave the start zone
+  if (running && !pausedAt && mapState.def.startZone && inZone(player.pos, mapState.def.startZone)) startTime = performance.now();
   elFill.style.width = Math.min(100, (sp/P.slideSpeed)*100) + '%';
   if (running && !pausedAt) { elapsed = (performance.now() - startTime)/1000; elTime.textContent = elapsed.toFixed(2); }
   elTargets.innerHTML = mapState.def.respawnTargets
@@ -243,6 +268,7 @@ function updateHud(dt) {
 
   let st = '';
   if (player.mantle) st = 'CLIMB';
+  else if (player.surfing) st = 'SURF';
   else if (player.wallrun) st = 'WALL-RUN';
   else if (player.sliding) st = 'SLIDE';
   else if (player.crouching) st = 'CROUCH';
@@ -290,10 +316,15 @@ function updateHud(dt) {
 let last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
-  const dt = Math.min((now - last)/1000, 0.033); last = now;
+  const rawDt = (now - last)/1000;
+  const dt = Math.min(rawDt, 0.033); last = now;
+  updateFps(rawDt);
   const time = now / 1000;
 
-  if (locked) { for (let i=0;i<2;i++) updateMovement(dt/2); }
+  if (locked) {
+    if (mapState.def.physics === 'source') updateSourceMovement(dt);
+    else for (let i=0;i<2;i++) updateMovement(dt/2);
+  }
   updateCamera(dt);
   updateWeapons(dt, time, locked);
   if (locked) { updateBots(dt, time); updateGrenades(dt, time); updateHealth(dt, time); }
@@ -316,4 +347,5 @@ loadMap(MAPS[savedMap] ? savedMap : mapOrder[0]);
 respawnTo(0);
 selectMap(mapState.id);
 updateBotsBtn();
+applySettings();
 requestAnimationFrame(loop);

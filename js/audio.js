@@ -8,7 +8,7 @@ function initAudio() {
   if (actx) { actx.resume(); if (musicWanted && !musicPlaying) startMusic(); return; }
   actx = new (window.AudioContext || window.webkitAudioContext)();
   master = actx.createGain(); master.gain.value = 0.9; master.connect(actx.destination);
-  sfxGain = actx.createGain(); sfxGain.gain.value = 0.6; sfxGain.connect(master);
+  sfxGain = actx.createGain(); sfxGain.gain.value = sfxLevel(); sfxGain.connect(master);
   musicGain = actx.createGain(); musicGain.gain.value = 0.0; musicGain.connect(master);
   // noise buffer
   const len = actx.sampleRate;
@@ -142,7 +142,7 @@ function startMusic() {
   step16 = 0; barCount = 0; nextNoteTime = actx.currentTime + 0.1;
   musicGain.gain.cancelScheduledValues(actx.currentTime);
   musicGain.gain.setValueAtTime(musicGain.gain.value, actx.currentTime);
-  musicGain.gain.linearRampToValueAtTime(0.32, actx.currentTime + 1.0);
+  musicGain.gain.linearRampToValueAtTime(musicLevel(), actx.currentTime + 1.0);
   musicTimer = setInterval(musicScheduler, 25);
 }
 function stopMusic() {

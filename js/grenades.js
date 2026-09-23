@@ -12,6 +12,11 @@ const _gb = { min: new THREE.Vector3(), max: new THREE.Vector3() };
 function pointBlocked(p, r) {
   _gb.min.set(p.x - r, p.y - r, p.z - r); _gb.max.set(p.x + r, p.y + r, p.z + r);
   for (const c of colliders) if (overlap(_gb, c)) return c;
+  // sloped brushes (surf ramps) — point inside all planes, inflated by r
+  for (const b of brushes) {
+    if (b.planes.length <= 6) continue;          // plain boxes are covered above
+    if (b.planes.every(pl => pl.n.dot(p) <= pl.d + r)) return b;
+  }
   return null;
 }
 

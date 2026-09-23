@@ -244,8 +244,9 @@ function updateMovement(dt) {
     sfxLand(Math.min(0.15 + hit.impact/40, 0.6));
   }
 
-  if (player.pos.y < -25) respawn();
-  if (mapState.finish && player.pos.distanceTo(mapState.finish) < 4 && running) finishRun();
+  const cp = mapState.checkpoints[curCheckpoint];
+  if (player.pos.y < (cp && cp.killY !== undefined ? cp.killY : -25)) respawn();
+  checkFinish();
   updateCheckpoint();
 }
 
@@ -292,7 +293,7 @@ function updateCamera(dt) {
   }
 
   // speed widens the FOV, aiming down sights narrows it
-  const fov = (80 + Math.min(sp*0.7, 16) * (1 - gun.adsT)) * adsFovScale();
+  const fov = (SETTINGS.fov + Math.min(sp*0.7, 16) * (1 - gun.adsT)) * adsFovScale();
   camera.fov += (fov - camera.fov)*Math.min(1, dt*(gun.ads ? 16 : 8));
   camera.updateProjectionMatrix();
 
