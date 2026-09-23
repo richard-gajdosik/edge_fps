@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDGE — parkour FPS</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app"></div>
+
+<div id="ui">
+  <div id="cross"><i></i><i></i><i></i><i></i></div>
+  <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+  <div id="hud">
+    <div id="speed"><b>0</b></div>
+    <div id="speedlabel">SPEED</div>
+    <div id="speedbar"><div id="speedfill"></div></div>
+  </div>
+  <div id="timer">
+    <div id="time">0.00</div><div class="label">TIME</div>
+    <div id="targets"><b>0</b> / 0</div><div class="label">TERČE</div>
+  </div>
+  <div id="music">♪ <b>D&amp;B</b></div>
+  <div id="state">AIR</div>
+  <div id="weapon">
+    <div id="ammo"><b>12</b><span> / 12</span></div>
+    <div id="wname">PISTOĽ</div>
+    <div id="slots"></div>
+  </div>
+  <div id="flash"></div>
+  <div id="best">BEST —</div>
+
+  <div id="overlay">
+    <h1><b>EDGE</b></h1>
+    <p id="subtitle">PARKOUR · FPS</p>
+    <div id="maps"></div>
+    <div id="keys">
+      <span>WASD</span><span>pohyb</span>
+      <span>MYŠ ĽAVÉ</span><span>streľba</span>
+      <span>SHIFT</span><span>šprint</span>
+      <span>1 / 2 · koliesko</span><span>pištoľ / samopal</span>
+      <span>SPACE</span><span>skok · double jump · wall-jump</span>
+      <span>Q</span><span>posledná zbraň</span>
+      <span>SHIFT + CTRL / C</span><span>slide</span>
+      <span>R</span><span>nabiť</span>
+      <span>W k okraju</span><span>climb / mantle hore</span>
+      <span>T</span><span>respawn na checkpoint</span>
+      <span>stena + smer</span><span>wall-run</span>
+      <span>M</span><span>hudba zap/vyp</span>
+    </div>
+    <div id="buttons">
+      <button id="resume" style="display:none">POKRAČOVAŤ</button>
+      <button id="play">HRAŤ</button>
+    </div>
+    <button id="musictoggle">♪ HUDBA: ZAP</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Order matters: plain (non-module) scripts sharing global scope, so the game
+     also runs straight from file:// without a local server. -->
+<script src="js/engine.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/level.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/targets.js"></script>
+<script src="js/player.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/maps/parkour.js"></script>
+<script src="js/maps/arena.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
