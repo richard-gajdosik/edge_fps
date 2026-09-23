@@ -3,9 +3,10 @@
 // =========================================================================
 const player = {
   pos: new THREE.Vector3(), vel: new THREE.Vector3(),
-  hw: 0.4, height: 1.75, eye: 1.62,
+  hw: 0.4, height: 1.75, eye: 1.62, lastSafe: new THREE.Vector3(),
   onGround: false, wallrun: 0, wallNormal: new THREE.Vector3(),
-  sliding: false, slideBuffer: 0, slideTime: 0, crouchT: 0,
+  sliding: false, crouching: false, slidePress: 0, slideTime: 0, crouchT: 0,
+  hp: 100, lastHurt: -99, invuln: 0,
   coyote: 0, jumpBuffer: 0, airJumps: 0,
   mantle: null, bobPhase: 0, swingSign: 1, landKick: 0,
   yaw: 0, pitch: 0, camRoll: 0,
@@ -16,7 +17,8 @@ const P = {
   groundAccel: 95, airAccel: 30, friction: 9,
   jump: 9.2, doubleJump: 8.4, wallJumpUp: 8.5, wallJumpOut: 8.0,
   wallRunGravity: 5, wallRunBoost: 12, wallStick: 0.55,
-  slideBoost: 1.28, mantleDur: 0.26,
+  slideBoost: 1.28, slideMaxTime: 1.1, crouchSpeed: 3.6, mantleDur: 0.26,
+  standHeight: 1.75, crouchHeight: 1.0,
 };
 
 // =========================================================================
@@ -50,60 +52,8 @@ function buildLeg(side) {
 const legL = buildLeg(-1), legR = buildLeg(1);
 
 // =========================================================================
-//  COLLISION
+//  COLLISION  (see physics.js — moveBody / spaceFree)
 // =========================================================================
-let landedThisFrame = false, impactSpeed = 0;
-
-function playerAABB(pos) {
-  return {
-    min: new THREE.Vector3(pos.x - player.hw, pos.y, pos.z - player.hw),
-    max: new THREE.Vector3(pos.x + player.hw, pos.y + player.height, pos.z + player.hw),
-  };
-}
-function overlap(a, b) {
-  return a.min.x < b.max.x && a.max.x > b.min.x &&
-         a.min.y < b.max.y && a.max.y > b.min.y &&
-         a.min.z < b.max.z && a.max.z > b.min.z;
-}
-function isFree(feet) {
-  const b = {
-    min: new THREE.Vector3(feet.x-player.hw+0.05, feet.y+0.05, feet.z-player.hw+0.05),
-    max: new THREE.Vector3(feet.x+player.hw-0.05, feet.y+player.height-0.05, feet.z+player.hw-0.05)
-  };
-  for (const c of colliders) if (overlap(b, c)) return false;
-  return true;
-}
-
-function moveAndCollide(dt) {
-  const wasAir = !player.onGround;
-  player.onGround = false;
-
-  player.pos.x += player.vel.x * dt;
-  let pb = playerAABB(player.pos);
-  for (const c of colliders) if (overlap(pb, c)) {
-    if (player.vel.x > 0) player.pos.x = c.min.x - player.hw;
-    else if (player.vel.x < 0) player.pos.x = c.max.x + player.hw;
-    player.vel.x = 0; pb = playerAABB(player.pos);
-  }
-  player.pos.z += player.vel.z * dt;
-  pb = playerAABB(player.pos);
-  for (const c of colliders) if (overlap(pb, c)) {
-    if (player.vel.z > 0) player.pos.z = c.min.z - player.hw;
-    else if (player.vel.z < 0) player.pos.z = c.max.z + player.hw;
-    player.vel.z = 0; pb = playerAABB(player.pos);
-  }
-  player.pos.y += player.vel.y * dt;
-  pb = playerAABB(player.pos);
-  for (const c of colliders) if (overlap(pb, c)) {
-    if (player.vel.y > 0) { player.pos.y = c.min.y - player.height; player.vel.y = 0; }
-    else if (player.vel.y < 0) {
-      player.pos.y = c.max.y;
-      if (wasAir && player.vel.y < -4) { landedThisFrame = true; impactSpeed = -player.vel.y; }
-      player.vel.y = 0; player.onGround = true;
-    }
-    pb = playerAABB(player.pos);
-  }
-}
 
 // wall detection (for wall-run)
 function detectWall() {
@@ -125,7 +75,7 @@ function detectWall() {
 // ledge detection (for mantle)
 function detectLedge() {
   const fwd = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
-  const reach = player.hw + 0.45;
+  const reach = player.hw + 0.45;  // probe just past the body
   const fx = player.pos.x + fwd.x*reach, fz = player.pos.z + fwd.z*reach;
   let best = null;
   for (const c of colliders) {
@@ -133,7 +83,7 @@ function detectLedge() {
       const rel = c.max.y - player.pos.y;
       if (rel > 0.5 && rel < 1.75) {
         const stand = new THREE.Vector3(fx + fwd.x*0.25, c.max.y, fz + fwd.z*0.25);
-        if (isFree(stand) && (!best || stand.y < best.y)) best = stand;
+        if (spaceFree(player, stand, P.standHeight) && (!best || stand.y < best.y)) best = stand;
       }
     }
   }
@@ -157,6 +107,12 @@ function applyFriction(dt) {
   player.vel.x *= f; player.vel.z *= f;
 }
 
+// room to stand up at the current spot?
+function canStand() { return spaceFree(player, player.pos, P.standHeight); }
+
+// called on the crouch key's first keydown (auto-repeat is ignored)
+function pressCrouch() { player.slidePress = 0.16; }
+
 function startMantle(target) {
   player.mantle = { from: player.pos.clone(), to: target.clone(), t: 0 };
   player.vel.set(0,0,0);
@@ -168,13 +124,18 @@ function updateMovement(dt) {
   if (player.mantle) {
     player.mantle.t += dt / P.mantleDur;
     const k = Math.min(player.mantle.t, 1);
-    const e = 1 - Math.pow(1 - k, 3);
-    player.pos.lerpVectors(player.mantle.from, player.mantle.to, e);
+    // up first, then over the edge — the body never cuts through the ledge corner
+    const m = player.mantle, ease = x => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3);
+    const ky = ease(k / 0.5), kx = ease((k - 0.5) / 0.5);
+    player.pos.set(m.from.x + (m.to.x - m.from.x) * kx,
+                   m.from.y + (m.to.y + 0.02 - m.from.y) * ky,
+                   m.from.z + (m.to.z - m.from.z) * kx);
     if (k >= 1) {
       player.pos.copy(player.mantle.to);
       const f = new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
       player.vel.set(f.x*3, 0, f.z*3);
       player.mantle = null; player.onGround = true; player.airJumps = 1;
+      player.lastSafe.copy(player.pos);
     }
     return;
   }
@@ -190,7 +151,8 @@ function updateMovement(dt) {
 
   const sprinting = keys['ShiftLeft'] || keys['ShiftRight'];
   const crouch = keys['ControlLeft'] || keys['ControlRight'] || keys['KeyC'];
-  player.coyote -= dt; player.jumpBuffer -= dt; player.slideBuffer -= dt;
+  player.coyote -= dt; player.jumpBuffer -= dt; player.slidePress -= dt;
+  const speedMul = weaponSpeedMul();
   const speedH = Math.hypot(player.vel.x, player.vel.z);
 
   // --- MANTLE trigger (airborne, moving forward toward a ledge) ---
@@ -222,9 +184,10 @@ function updateMovement(dt) {
     player.wallrun = 0;
     if (player.onGround) {
       player.coyote = 0.1; player.airJumps = 1;
-      // Fortnite-style slide: buffered crouch press while you have momentum
-      if (player.slideBuffer > 0 && !player.sliding && speedH > 4.5) {
-        player.sliding = true; player.slideTime = 0; player.slideBuffer = 0;
+      // Fortnite-style slide: ONE slide per crouch press (holding the key never
+      // re-triggers it — after the slide you just stay crouched)
+      if (player.slidePress > 0 && !player.sliding && speedH > 4.5) {
+        player.sliding = true; player.slideTime = 0; player.slidePress = 0;
         const boost = Math.max(speedH, P.run) * P.slideBoost;
         const f = boost / Math.max(speedH, 0.001);
         player.vel.x *= f; player.vel.z *= f;
@@ -232,28 +195,32 @@ function updateMovement(dt) {
       }
       if (player.sliding) {
         player.slideTime += dt;
-        // end: crouch released (after a short minimum) or slowed down
-        if ((!crouch && player.slideTime > 0.22) || speedH < 3.2) player.sliding = false;
+        // end: crouch released (after a short minimum), slowed down or too long
+        if ((!crouch && player.slideTime > 0.22) || speedH < 3.2 || player.slideTime > P.slideMaxTime)
+          player.sliding = false;
       }
+      player.crouching = !player.sliding && (crouch || !canStand());
       if (player.sliding) {
         const drop = speedH * 1.25 * dt, ns = Math.max(speedH - drop, 0);
         if (speedH > 0) { const f = ns/speedH; player.vel.x*=f; player.vel.z*=f; }
         if (hasInput) accelerate(wish, speedH, 14, dt); // gentle steering during slide
       } else {
         applyFriction(dt);
-        if (hasInput) accelerate(wish, sprinting ? P.run : P.walk, P.groundAccel, dt);
+        const ws = player.crouching ? P.crouchSpeed : (sprinting ? P.run : P.walk);
+        if (hasInput) accelerate(wish, ws * speedMul, P.groundAccel, dt);
       }
       player.vel.y = -1;
     } else {
       player.sliding = false;
-      if (hasInput) accelerate(wish, sprinting ? P.run : P.walk, P.airAccel, dt);
+      player.crouching = !canStand();
+      if (hasInput) accelerate(wish, (sprinting ? P.run : P.walk) * speedMul, P.airAccel, dt);
       player.vel.y -= P.gravity*dt;
     }
 
     // JUMP: ground/coyote, else double jump
     if (player.jumpBuffer > 0) {
-      if (player.coyote > 0) {
-        player.vel.y = P.jump; player.sliding = false;
+      if (player.coyote > 0 && canStand()) {
+        player.vel.y = P.jump; player.sliding = false; player.crouching = false;
         player.jumpBuffer = 0; player.coyote = 0; player.onGround = false;
         sfxJump(1);
       } else if (player.airJumps > 0) {
@@ -265,15 +232,16 @@ function updateMovement(dt) {
       }
     }
   }
-  const crouchTarget = (player.sliding || player.wallrun) ? 1 : 0;
+  // collision height: low while sliding / crouching (slide under obstacles)
+  const low = player.sliding || player.crouching;
+  player.height = low ? P.crouchHeight : P.standHeight;
+  const crouchTarget = low ? 1 : (player.wallrun ? 0.6 : 0);
   player.crouchT += (crouchTarget - player.crouchT) * Math.min(1, dt*12);
 
-  moveAndCollide(dt);
-
-  if (landedThisFrame) {
-    landedThisFrame = false;
-    player.landKick = Math.min(impactSpeed/16, 0.6);
-    sfxLand(Math.min(0.15 + impactSpeed/40, 0.6));
+  const hit = moveBody(player, dt);
+  if (hit.landed) {
+    player.landKick = Math.min(hit.impact/16, 0.6);
+    sfxLand(Math.min(0.15 + hit.impact/40, 0.6));
   }
 
   if (player.pos.y < -25) respawn();
@@ -296,7 +264,7 @@ function updateCamera(dt) {
 
   player.landKick *= Math.max(0, 1 - dt*8);
 
-  const eyeH = player.eye - player.crouchT*0.7 + bobY - player.landKick*0.3;
+  const eyeH = player.eye - player.crouchT*0.72 + bobY - player.landKick*0.3;
   camera.position.set(player.pos.x, player.pos.y + eyeH, player.pos.z);
 
   // view = aim + weapon recoil punch (decays back in weapons.js)
@@ -317,9 +285,15 @@ function updateCamera(dt) {
   else rollTarget = Math.sin(player.bobPhase) * (moving ? Math.min(sp*0.002,0.02) : 0);
   player.camRoll += (rollTarget - player.camRoll)*Math.min(1, dt*8);
   camera.rotateZ(player.camRoll);
+  if (camShake > 0) {
+    camera.rotateX((Math.random() - 0.5) * camShake * 0.06);
+    camera.rotateY((Math.random() - 0.5) * camShake * 0.06);
+    camShake = Math.max(0, camShake - dt * 3);
+  }
 
-  const fov = 80 + Math.min(sp*0.7, 16);
-  camera.fov += (fov - camera.fov)*Math.min(1, dt*6);
+  // speed widens the FOV, aiming down sights narrows it
+  const fov = (80 + Math.min(sp*0.7, 16) * (1 - gun.adsT)) * adsFovScale();
+  camera.fov += (fov - camera.fov)*Math.min(1, dt*(gun.ads ? 16 : 8));
   camera.updateProjectionMatrix();
 
   animateViewmodel(dt, sp, moving);
@@ -342,6 +316,7 @@ function animateViewmodel(dt, sp, moving) {
   let legTargetL, legTargetR;
   if (!player.onGround) { legTargetL = -0.5; legTargetR = 0.7; }        // tuck in air
   else if (player.sliding) { legTargetL = 1.2; legTargetR = 0.6; }      // legs forward
+  else if (player.crouching) { legTargetL = 0.9 + swing*amp*0.5; legTargetR = 0.9 - swing*amp*0.5; }
   else { legTargetL = swing*amp; legTargetR = -swing*amp; }
   legL.rotation.x += (legTargetL - legL.rotation.x) * Math.min(1, dt*14);
   legR.rotation.x += (legTargetR - legR.rotation.x) * Math.min(1, dt*14);

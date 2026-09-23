@@ -49,7 +49,7 @@ function clearLevel() {
     if (o.material && o.userData.ownMaterial) o.material.dispose();
   });
   while (level.children.length) level.remove(level.children[0]);
-  colliders.length = 0; solids.length = 0; targets.length = 0;
+  colliders.length = 0; solids.length = 0; targets.length = 0; bots.length = 0;
   clearFx();
 }
 

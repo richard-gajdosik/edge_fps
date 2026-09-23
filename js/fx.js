@@ -6,6 +6,11 @@ const fxGroup = new THREE.Group(); scene.add(fxGroup);
 const partGeo  = new THREE.BoxGeometry(1, 1, 1);
 const matSpark = new THREE.MeshBasicMaterial({ color: 0xffb347 });
 const matDust  = new THREE.MeshBasicMaterial({ color: 0x8d969f });
+const matSmoke = new THREE.MeshBasicMaterial({ color: 0x3a3438, transparent: true, opacity: 0.55 });
+
+// camera shake (explosions); applied in updateCamera
+let camShake = 0;
+function addShake(a) { camShake = Math.min(1.5, camShake + a); }
 
 const particles = [];
 function spawnParticle(pos, vel, size, mat, life, gravity = 20) {
@@ -91,6 +96,7 @@ function updateFx(dt) {
 }
 
 function clearFx() {
+  clearGrenades();
   for (const t of tracers) t.mesh.material.dispose();
   particles.length = 0; tracers.length = 0; decals.length = 0;
   while (fxGroup.children.length) fxGroup.remove(fxGroup.children[0]);

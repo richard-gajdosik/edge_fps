@@ -11,6 +11,8 @@
 
 <div id="ui">
   <div id="vignette"></div>
+  <div id="hurt"></div>
+  <div id="scope"><i></i><i></i></div>
   <div id="grain"></div>
   <div id="cross"><i></i><i></i><i></i><i></i></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
@@ -22,12 +24,19 @@
   <div id="timer">
     <div id="time">0.00</div><div class="label">TIME</div>
     <div id="targets"><b>0</b> / 0</div><div class="label">TERČE</div>
+    <div id="score"><b>0</b> K · 0 D</div>
+  </div>
+  <div id="banner"></div>
+  <div id="health">
+    <div id="hpnum"><b>100</b><span> HP</span></div>
+    <div id="hpbar"><div id="hpfill"></div></div>
   </div>
   <div id="music">♪ <b>D&amp;B</b></div>
   <div id="state">AIR</div>
   <div id="weapon">
     <div id="ammo"><b>12</b><span> / 12</span></div>
     <div id="wname">PISTOĽ</div>
+    <div id="nades"></div>
     <div id="slots"></div>
   </div>
   <div id="flash"></div>
@@ -37,18 +46,21 @@
     <h1><b>EDGE</b></h1>
     <p id="subtitle">PARKOUR · FPS</p>
     <div id="maps"></div>
+    <div id="mapopts"><button id="botsbtn">BOTI: 4</button></div>
     <div id="keys">
       <span>WASD</span><span>pohyb</span>
-      <span>MYŠ ĽAVÉ</span><span>streľba</span>
+      <span>MYŠ ĽAVÉ</span><span>streľba / úder / hod</span>
       <span>SHIFT</span><span>šprint</span>
-      <span>1 / 2 · koliesko</span><span>pištoľ / samopal</span>
+      <span>MYŠ PRAVÉ</span><span>priblíženie (pištoľ, samopal, sniperka)</span>
       <span>SPACE</span><span>skok · double jump · wall-jump</span>
-      <span>Q</span><span>posledná zbraň</span>
-      <span>SHIFT + CTRL / C</span><span>slide</span>
-      <span>R</span><span>nabiť</span>
+      <span>1 – 5 · koliesko</span><span>pištoľ · samopal · sniperka · nôž · granát</span>
+      <span>C / CTRL</span><span>slide (raz) → podržaním crouch</span>
+      <span>G</span><span>rýchly granát</span>
       <span>W k okraju</span><span>climb / mantle hore</span>
-      <span>T</span><span>respawn na checkpoint</span>
+      <span>Q</span><span>posledná zbraň</span>
       <span>stena + smer</span><span>wall-run</span>
+      <span>R</span><span>nabiť</span>
+      <span>T</span><span>respawn na checkpoint</span>
       <span>M</span><span>hudba zap/vyp</span>
     </div>
     <div id="buttons">
@@ -66,10 +78,13 @@
 <script src="js/environment.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/level.js"></script>
+<script src="js/physics.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/targets.js"></script>
 <script src="js/player.js"></script>
 <script src="js/weapons.js"></script>
+<script src="js/grenades.js"></script>
+<script src="js/bots.js"></script>
 <script src="js/maps/parkour.js"></script>
 <script src="js/maps/arena.js"></script>
 <script src="js/game.js"></script>

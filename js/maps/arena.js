@@ -11,6 +11,14 @@ registerMap({
   timed: false,
   targetBonus: 0,
   respawnTargets: true,
+  bots: true,                 // menu offers a bot count for this map
+  botArea: { minX: -40, maxX: 40, minZ: -40, maxZ: 40 },
+  botSpawns: [
+    new THREE.Vector3(-38, 0, -38), new THREE.Vector3(38, 0, -38),
+    new THREE.Vector3(-38, 0, 38),  new THREE.Vector3(38, 0, 38),
+    new THREE.Vector3(-28, 0, 0),   new THREE.Vector3(26, 0, -30),
+    new THREE.Vector3(10, 0, -40),  new THREE.Vector3(-8, 0, 20),
+  ],
 
   build() {
     const W = 90, H = 6;

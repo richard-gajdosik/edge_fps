@@ -164,6 +164,7 @@ document.getElementById('musictoggle').addEventListener('click', (e) => { e.stop
 function sfxShot(kind) {
   if (!actx) return;
   const t = actx.currentTime;
+  if (kind === 'sniper') { sfxSniper(t); return; }
   const heavy = kind === 'pistol';
   // crack: filtered noise burst
   const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = heavy ? 3800 : 5200;
@@ -204,4 +205,54 @@ function sfxBreak() {
   o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(1320, t + 0.08);
   const og = actx.createGain(); og.gain.setValueAtTime(0.18, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
   o.connect(og); og.connect(sfxGain); o.start(t); o.stop(t + 0.2);
+}
+
+function sfxSniper(t) {
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(5000, t); lp.frequency.exponentialRampToValueAtTime(400, t + 0.5);
+  const ng = actx.createGain(); ng.gain.setValueAtTime(0.7, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+  lp.connect(ng); ng.connect(sfxGain); noise(lp, 0.56, t);
+  const o = actx.createOscillator(); o.type = 'triangle';
+  o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(35, t + 0.3);
+  const og = actx.createGain(); og.gain.setValueAtTime(0.7, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  o.connect(og); og.connect(sfxGain); o.start(t); o.stop(t + 0.36);
+  sfxClick(700, 0.1, 0.55); sfxClick(1000, 0.1, 0.75);   // bolt cycle
+}
+function sfxSwish() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(2600, t + 0.12);
+  const g = actx.createGain(); g.gain.setValueAtTime(0.0, t); g.gain.linearRampToValueAtTime(0.22, t + 0.04);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+  bp.connect(g); g.connect(sfxGain); noise(bp, 0.17, t);
+}
+function sfxBounce(vol) { sfxClick(420 + Math.random() * 200, Math.min(0.12, vol)); }
+function sfxExplosion(vol = 1) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(3000, t); lp.frequency.exponentialRampToValueAtTime(120, t + 1.1);
+  const g = actx.createGain(); g.gain.setValueAtTime(0.9 * vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+  lp.connect(g); g.connect(sfxGain); noise(lp, 1.2, t);
+  const o = actx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(25, t + 0.6);
+  const og = actx.createGain(); og.gain.setValueAtTime(0.9 * vol, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+  o.connect(og); og.connect(sfxGain); o.start(t); o.stop(t + 0.72);
+}
+function sfxHurt() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.15);
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+  const g = actx.createGain(); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  o.connect(lp); lp.connect(g); g.connect(sfxGain); o.start(t); o.stop(t + 0.2);
+}
+function sfxBotShot(dist) {
+  if (!actx) return;
+  const t = actx.currentTime, v = Math.max(0.04, 0.3 - dist * 0.004);
+  const hp = actx.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 1500; hp.Q.value = 0.6;
+  const g = actx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+  hp.connect(g); g.connect(sfxGain); noise(hp, 0.09, t);
 }
