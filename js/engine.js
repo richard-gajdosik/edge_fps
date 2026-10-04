@@ -28,7 +28,7 @@ scene.fog = new THREE.Fog(MOOD.skyHorizon, MOOD.fogNear, MOOD.fogFar);
 const camera = new THREE.PerspectiveCamera(80, innerWidth/innerHeight, 0.02, 2000);
 scene.add(camera); // so viewmodel arms (camera children) render
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;

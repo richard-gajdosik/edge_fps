@@ -35,7 +35,10 @@ document.addEventListener('mouseup', e => {
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('wheel', e => { if (locked) cycleWeapon(e.deltaY > 0 ? 1 : -1); }, { passive: true });
 
-document.addEventListener('mousemove', e => {
+// pointerrawupdate (Chrome/Edge) fires as soon as the mouse reports, not once
+// per frame like mousemove → less input latency. Falls back to mousemove.
+const LOOK_EVENT = 'onpointerrawupdate' in window ? 'pointerrawupdate' : 'mousemove';
+document.addEventListener(LOOK_EVENT, e => {
   if (!locked) return;
   const sens = 0.0022 * aimSensitivity() * SETTINGS.sens;
   player.yaw   -= e.movementX * sens;
@@ -52,7 +55,15 @@ const elTitle   = overlay.querySelector('h1');
 const elSub     = document.getElementById('subtitle');
 const elMaps    = document.getElementById('maps');
 
-function requestLock() { renderer.domElement.requestPointerLock(); }
+// unadjustedMovement = raw mouse input (no OS acceleration / smoothing);
+// browsers without it reject the request, then we lock the normal way
+function requestLock() {
+  const c = renderer.domElement;
+  try {
+    const p = c.requestPointerLock({ unadjustedMovement: true });
+    if (p && p.catch) p.catch(() => { try { c.requestPointerLock(); } catch (e) {} });
+  } catch (e) { c.requestPointerLock(); }
+}
 playBtn.addEventListener('click', () => { initAudio(); startRun(); requestLock(); });
 resumeBtn.addEventListener('click', () => { initAudio(); requestLock(); });
 
@@ -244,27 +255,41 @@ for (let i = 0; i < weaponOrder.length; i++) {
   elSlots.appendChild(s);
 }
 
+// write to the DOM only when a value actually changed — avoids style/layout
+// work every frame (that work competes with rendering and adds latency)
+function hset(el, key, val) {
+  const c = el._hud || (el._hud = {});
+  if (c[key] === val) return;
+  c[key] = val;
+  if (key === 'text') el.textContent = val;
+  else if (key === 'html') el.innerHTML = val;
+  else if (key.startsWith('--')) el.style.setProperty(key, val);
+  else el.style[key] = val;
+}
+
 function updateHud(dt) {
   const sp = Math.hypot(player.vel.x, player.vel.z);
   const surf = mapState.def.physics === 'source';
-  elSpeed.textContent = surf ? Math.round(sp / U) : Math.round(sp * 7.2);
-  elSpeedLabel.textContent = surf ? 'U/S' : 'SPEED';
+  hset(elSpeed, 'text', surf ? Math.round(sp / U) : Math.round(sp * 7.2));
+  hset(elSpeedLabel, 'text', surf ? 'U/S' : 'SPEED');
   // surf: big speedometer (horizontal speed in Source units) + speed lines
-  elSurf.style.display = surf ? 'block' : 'none';
+  hset(elSurf, 'display', surf ? 'block' : 'none');
   if (surf) {
     const ups = sp / U;
-    elSurfNum.textContent = Math.round(ups);
+    hset(elSurfNum, 'text', Math.round(ups));
     const k = Math.min(ups / 3000, 1);
-    elSurf.style.color = `rgb(${243 + 12*k | 0}, ${236 - 162*k | 0}, ${227 - 191*k | 0})`;
-    elSurfBar.style.width = (k * 100) + '%';
-    elLines.style.opacity = Math.max(0, Math.min(0.55, (ups - 700) / 2400)).toFixed(3);
-  } else elLines.style.opacity = 0;
+    hset(elSurf, 'color', `rgb(${243 + 12*k | 0}, ${236 - 162*k | 0}, ${227 - 191*k | 0})`);
+    hset(elSurfBar, 'width', (k * 100).toFixed(0) + '%');
+    const lo = Math.max(0, Math.min(0.55, (ups - 700) / 2400));
+    hset(elLines, 'opacity', lo.toFixed(2));
+    hset(elLines, 'display', lo > 0 ? 'block' : 'none');
+  } else hset(elLines, 'display', 'none');
   // surf timer only starts once you leave the start zone
   if (running && !pausedAt && mapState.def.startZone && inZone(player.pos, mapState.def.startZone)) startTime = performance.now();
-  elFill.style.width = Math.min(100, (sp/P.slideSpeed)*100) + '%';
-  if (running && !pausedAt) { elapsed = (performance.now() - startTime)/1000; elTime.textContent = elapsed.toFixed(2); }
-  elTargets.innerHTML = mapState.def.respawnTargets
-    ? `<b>${targetsHit}</b>` : `<b>${targetsHit}</b> / ${targets.length}`;
+  hset(elFill, 'width', Math.min(100, (sp/P.slideSpeed)*100).toFixed(0) + '%');
+  if (running && !pausedAt) { elapsed = (performance.now() - startTime)/1000; hset(elTime, 'text', elapsed.toFixed(2)); }
+  hset(elTargets, 'html', mapState.def.respawnTargets
+    ? `<b>${targetsHit}</b>` : `<b>${targetsHit}</b> / ${targets.length}`);
 
   let st = '';
   if (player.mantle) st = 'CLIMB';
@@ -273,43 +298,43 @@ function updateHud(dt) {
   else if (player.sliding) st = 'SLIDE';
   else if (player.crouching) st = 'CROUCH';
   else if (!player.onGround) st = player.airJumps > 0 ? 'AIR' : 'DOUBLE';
-  elState.textContent = st;
-  elState.style.opacity = st ? 1 : 0;
+  hset(elState, 'text', st);
+  hset(elState, 'opacity', st ? 1 : 0);
 
   // weapon
   const w = WEAPONS[gun.id], ammo = gun.ammo[gun.id];
   if (w.type === 'gun') {
-    elAmmo.innerHTML = `<b>${ammo}</b><span> / ${w.mag}</span>`;
+    hset(elAmmo, 'html', `<b>${ammo}</b><span> / ${w.mag}</span>`);
     elAmmo.classList.toggle('low', ammo <= Math.ceil(w.mag * 0.25));
   } else if (w.type === 'throw') {
-    elAmmo.innerHTML = `<b>${gun.grenades}</b><span> / ${MAX_GRENADES}</span>`;
+    hset(elAmmo, 'html', `<b>${gun.grenades}</b><span> / ${MAX_GRENADES}</span>`);
     elAmmo.classList.toggle('low', gun.grenades === 0);
-  } else { elAmmo.innerHTML = '<b>∞</b>'; elAmmo.classList.remove('low'); }
-  elNades.textContent = 'G GRANÁT ' + '●'.repeat(gun.grenades) + '○'.repeat(MAX_GRENADES - gun.grenades);
-  elWName.textContent = gun.reloading > 0 ? 'NABÍJANIE…' : w.name;
+  } else { hset(elAmmo, 'html', '<b>∞</b>'); elAmmo.classList.remove('low'); }
+  hset(elNades, 'text', 'G GRANÁT ' + '●'.repeat(gun.grenades) + '○'.repeat(MAX_GRENADES - gun.grenades));
+  hset(elWName, 'text', gun.reloading > 0 ? 'NABÍJANIE…' : w.name);
   for (const s of elSlots.children) s.classList.toggle('on', s.dataset.w === (gun.pending || gun.id));
 
   // crosshair gap follows the actual bullet spread
   const px = currentSpread() / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * innerHeight / 2;
-  elCross.style.setProperty('--gap', (4 + px).toFixed(1) + 'px');
-  elCross.style.opacity = gun.scoped ? 0 : 1 - gun.adsT * 0.5;
-  elScope.style.opacity = gun.scoped ? 1 : 0;
+  hset(elCross, '--gap', (4 + px).toFixed(1) + 'px');
+  hset(elCross, 'opacity', gun.scoped ? '0' : (1 - gun.adsT * 0.5).toFixed(2));
+  hset(elScope, 'opacity', gun.scoped ? 1 : 0);
 
   // health
   const hp = Math.max(0, Math.ceil(player.hp));
-  elHpNum.textContent = hp;
-  elHpFill.style.width = hp + '%';
+  hset(elHpNum, 'text', hp);
+  hset(elHpFill, 'width', hp + '%');
   elHpFill.classList.toggle('low', hp <= 35);
   hurtT = Math.max(0, hurtT - dt * 1.6);
-  elHurt.style.opacity = Math.max(hurtT, player.hp < 35 ? 0.35 : 0);
+  hset(elHurt, 'opacity', Math.max(hurtT, player.hp < 35 ? 0.35 : 0).toFixed(2));
 
-  elScore.style.display = botsActive() ? '' : 'none';
-  elScore.innerHTML = `<b>${kills}</b> K · ${deaths} D`;
+  hset(elScore, 'display', botsActive() ? '' : 'none');
+  hset(elScore, 'html', `<b>${kills}</b> K · ${deaths} D`);
   bannerT -= dt;
-  elBanner.style.opacity = bannerT > 0 ? Math.min(1, bannerT * 3) : 0;
+  hset(elBanner, 'opacity', (bannerT > 0 ? Math.min(1, bannerT * 3) : 0).toFixed(2));
 
   hitTimer -= dt;
-  elHit.style.opacity = hitTimer > 0 ? 1 : 0;
+  hset(elHit, 'opacity', hitTimer > 0 ? 1 : 0);
 }
 
 // ---------- main loop ----------
