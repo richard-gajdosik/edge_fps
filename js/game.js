@@ -224,6 +224,7 @@ function respawnTo(i) {
   player.height = P.standHeight; player.lastSafe.copy(player.pos);
   if (i === 0 || mapState.def.resetYaw) { player.yaw = mapState.startYaw; if (i === 0) player.pitch = 0; }
   srcAccum = 0; player.onGround = false; player.surfing = false;
+  player.prevPos.copy(player.pos); player.renderPos.copy(player.pos);
 }
 function checkFinish() {
   if (!running) return;
@@ -339,8 +340,37 @@ function updateHud(dt) {
 
 // ---------- main loop ----------
 let last = performance.now();
+// ---------- frame scheduling / FPS limit ----------
+// VSYNC: requestAnimationFrame (browser presents in sync with the monitor).
+// A number / unlimited: frames are driven by a MessageChannel loop instead,
+// so the game renders more often than the monitor refreshes. The monitor
+// still shows at most its refresh rate, but each shown frame is newer
+// (= lower input latency). Hidden tabs always fall back to rAF.
+const frameChannel = new MessageChannel();
+let nextFrameAt = 0;
+frameChannel.port1.onmessage = () => waitFrame();
+function waitFrame() {
+  const w = nextFrameAt - performance.now();
+  if (w > 4) setTimeout(waitFrame, w - 3);       // timers are coarse: wake early, spin the rest
+  else if (w > 0) frameChannel.port2.postMessage(0);
+  else loop(performance.now());
+}
+function scheduleFrame(now) {
+  const lim = SETTINGS.fpsLimit;
+  if (lim === 'vsync' || document.hidden) { requestAnimationFrame(loop); return; }
+  const interval = lim === 'unlimited' ? 0 : 1000 / lim;
+  // keep a steady cadence, but never try to "catch up" after a stall
+  nextFrameAt = Math.max(nextFrameAt + interval, now);
+  // always yield first (new task): lets the browser present the frame and
+  // deliver mouse/keyboard events before the next one is simulated
+  frameChannel.port2.postMessage(0);
+}
+
 function loop(now) {
-  requestAnimationFrame(loop);
+  try { frame(now); } finally { scheduleFrame(now); }
+}
+
+function frame(now) {
   const rawDt = (now - last)/1000;
   const dt = Math.min(rawDt, 0.033); last = now;
   updateFps(rawDt);
@@ -348,7 +378,7 @@ function loop(now) {
 
   if (locked) {
     if (mapState.def.physics === 'source') updateSourceMovement(dt);
-    else for (let i=0;i<2;i++) updateMovement(dt/2);
+    else { for (let i=0;i<2;i++) updateMovement(dt/2); player.renderPos.copy(player.pos); }
   }
   updateCamera(dt);
   updateWeapons(dt, time, locked);
@@ -373,4 +403,5 @@ respawnTo(0);
 selectMap(mapState.id);
 updateBotsBtn();
 applySettings();
+player.prevPos.copy(player.pos); player.renderPos.copy(player.pos);
 requestAnimationFrame(loop);

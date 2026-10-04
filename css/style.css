@@ -183,3 +183,4 @@ canvas { display: block; }
 #settingsbtns button { padding: 12px 30px; border: none; cursor: pointer; font-size: 12px; letter-spacing: 3px; font-weight: 600; }
 #settingsback { background: #ff4a24; color: #fff; }
 #settingsreset { background: rgba(255,255,255,.08); color: #f3ece3; }
+.shint { display: block; margin-top: 3px; font-size: 10px; opacity: .55; max-width: 230px; line-height: 1.35; }

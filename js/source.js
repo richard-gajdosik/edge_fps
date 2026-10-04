@@ -305,11 +305,16 @@ function updateSourceMovement(dt) {
   player.jumpBuffer -= dt;
   srcAccum += dt;
   let n = 0;
-  while (srcAccum >= SRC.tick && n < 20) { sourceTick(SRC.tick); srcAccum -= SRC.tick; n++; }
+  while (srcAccum >= SRC.tick && n < 20) {
+    player.prevPos.copy(player.pos);
+    sourceTick(SRC.tick); srcAccum -= SRC.tick; n++;
+  }
   if (n >= 20) srcAccum = 0;
 
   const cp = mapState.checkpoints[curCheckpoint];
   if (player.pos.y < (cp.killY !== undefined ? cp.killY : -25)) respawn();
   checkFinish();
   updateCheckpoint();
+  // render between the previous and the current tick (no 1-tick/2-tick judder)
+  player.renderPos.lerpVectors(player.prevPos, player.pos, srcAccum / SRC.tick);
 }

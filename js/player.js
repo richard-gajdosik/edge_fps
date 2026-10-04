@@ -3,6 +3,9 @@
 // =========================================================================
 const player = {
   pos: new THREE.Vector3(), vel: new THREE.Vector3(),
+  // renderPos = what the camera shows; on fixed-tick maps it is interpolated
+  // between the last two physics ticks so motion stays smooth at any FPS
+  renderPos: new THREE.Vector3(), prevPos: new THREE.Vector3(),
   hw: 0.4, height: 1.75, eye: 1.62, lastSafe: new THREE.Vector3(),
   onGround: false, wallrun: 0, wallNormal: new THREE.Vector3(),
   sliding: false, crouching: false, slidePress: 0, slideTime: 0, crouchT: 0,
@@ -266,7 +269,8 @@ function updateCamera(dt) {
   player.landKick *= Math.max(0, 1 - dt*8);
 
   const eyeH = player.eye - player.crouchT*0.72 + bobY - player.landKick*0.3;
-  camera.position.set(player.pos.x, player.pos.y + eyeH, player.pos.z);
+  const rp = player.renderPos;
+  camera.position.set(rp.x, rp.y + eyeH, rp.z);
 
   // view = aim + weapon recoil punch (decays back in weapons.js)
   const lim = Math.PI/2 - 0.02;
@@ -312,7 +316,7 @@ function animateViewmodel(dt, sp, moving) {
   player.swingSign = sign;
 
   // LEGS follow body position + yaw
-  legs.position.set(player.pos.x, player.pos.y, player.pos.z);
+  legs.position.copy(player.renderPos);
   legs.rotation.y = player.yaw;
   let legTargetL, legTargetR;
   if (!player.onGround) { legTargetL = -0.5; legTargetR = 0.7; }        // tuck in air

@@ -9,6 +9,7 @@ const SETTINGS_DEFAULT = {
   backdrop: true,         // skyline, terrain, clouds
   fps: true,              // FPS counter
   fov: 80, sens: 1.0,
+  fpsLimit: 'vsync',      // 'vsync' | 120 | 144 | 240 | 'unlimited'
 };
 const SETTINGS = Object.assign({}, SETTINGS_DEFAULT);
 try { Object.assign(SETTINGS, JSON.parse(localStorage.getItem('edge_settings') || '{}')); } catch (e) {}
@@ -57,6 +58,8 @@ const SETTINGS_UI = [
   { key: 'shadows', label: 'Tiene',          type: 'choice', options: [['off','VYP'],['low','NÍZKE'],['high','VYSOKÉ'],['ultra','ULTRA']] },
   { key: 'effects', label: 'Zrno + vinetácia', type: 'toggle' },
   { key: 'backdrop',label: 'Mesto a mraky',  type: 'toggle' },
+  { key: 'fpsLimit', label: 'Limit FPS',     type: 'choice', options: [['vsync','VSYNC'],[120,'120'],[144,'144'],[240,'240'],['unlimited','BEZ LIMITU']],
+    hint: 'Nad frekvenciou monitora: monitor neukáže viac snímok, ale každá je čerstvejšia (nižšia latencia). Viac záťaže na CPU/GPU.' },
   { key: 'fps',     label: 'FPS počítadlo',  type: 'toggle' },
   { head: 'OVLÁDANIE' },
   { key: 'fov',     label: 'Zorné pole (FOV)', type: 'range', min: 65, max: 115, step: 1, fmt: v => v + '°' },
@@ -70,6 +73,7 @@ function buildSettingsPanel() {
     if (it.head) { const h = document.createElement('div'); h.className = 'shead'; h.textContent = it.head; body.appendChild(h); continue; }
     const row = document.createElement('div'); row.className = 'srow';
     const lab = document.createElement('span'); lab.className = 'slabel'; lab.textContent = it.label;
+    if (it.hint) { const h = document.createElement('small'); h.className = 'shint'; h.textContent = it.hint; lab.appendChild(h); }
     const ctl = document.createElement('div'); ctl.className = 'sctl';
     row.append(lab, ctl);
     if (it.type === 'range') {
